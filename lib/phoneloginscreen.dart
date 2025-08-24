@@ -1,142 +1,88 @@
 import 'package:flutter/material.dart';
-import 'package:pinput/pinput.dart';
-import 'package:taxi/OTPVerificationScreen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'OTPVerificationScreen.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
+
   @override
   State<PhoneLoginScreen> createState() => _PhoneLoginScreenState();
 }
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
-  final TextEditingController _digits = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool isLoading = false;
 
-  @override
-  void dispose() {
-    _digits.dispose();
-    super.dispose();
-  }
+  void _sendOtp() async {
+    String phone = '+964${_phoneController.text.trim()}';
 
-  Future<void> _sendOtp() async {
-    final raw = _digits.text.trim();
-    if (raw.length != 10 ||
-        !RegExp(r'^[0-9]+$').hasMatch(raw) ||
-        !raw.startsWith('7')) {
+    if (_phoneController.text.length != 10 || !_phoneController.text.startsWith('7')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('رجاءً أدخل رقم عراقي صحيح (10 أرقام ويبدأ بـ 7)'),
-        ),
+        const SnackBar(content: Text('رجاءً أدخل رقم عراقي صحيح')),
       );
       return;
     }
 
-    final phone = '+964$raw';
     setState(() => isLoading = true);
 
-    // محاكاة إرسال OTP
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => isLoading = false);
-
-    // الانتقال لصفحة OTPVerificationScreen مع تمرير المعلومات
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OTPVerificationScreen(
-          phoneNumber: phone,
-          verificationId: "dummy_verification_id", // رمز وهمي
-          otp: "123456", // OTP وهمي للمحاكاة
-        ),
-      ),
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم إرسال رمز التحقق (محاكاة)')),
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phone,
+      verificationCompleted: (credential) async {
+        // يمكن التحقق تلقائياً في بعض الأجهزة
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      },
+      verificationFailed: (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل التحقق: ${e.message}')),
+        );
+        setState(() => isLoading = false);
+      },
+      codeSent: (verificationId, resendToken) {
+        setState(() => isLoading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OTPVerificationScreen(
+              phoneNumber: phone,
+              verificationId: verificationId,
+            ),
+          ),
+        );
+      },
+      codeAutoRetrievalTimeout: (verificationId) {},
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final kGold = const Color(0xFFF3C26B);
-    final pinTheme = PinTheme(
-      width: 34,
-      height: 48,
-      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade400),
-      ),
-    );
-
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
-              Center(child: Image.asset('assets/images/taxi.jpg', height: 120)),
-              const SizedBox(height: 28),
+              const SizedBox(height: 100),
               const Text(
                 'أدخل رقم هاتفك',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  prefixText: '+964 ',
+                  border: OutlineInputBorder(),
+                  labelText: 'رقم الهاتف',
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: const Text(
-                      '+964',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Pinput(
-                        controller: _digits,
-                        length: 10,
-                        keyboardType: TextInputType.number,
-                        defaultPinTheme: pinTheme,
-                        focusedPinTheme: pinTheme.copyWith(
-                          decoration: pinTheme.decoration!.copyWith(
-                            border: Border.all(color: kGold, width: 2),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: isLoading ? null : _sendOtp,
                 child: isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                    ? const CircularProgressIndicator(color: Colors.white)
                     : const Text('إرسال رمز التحقق'),
               ),
             ],

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:taxi/OTPVerificationScreen.dart';
-import 'package:taxi/phoneloginscreen.dart';
-import 'package:taxi/sindriver.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'PhoneLoginScreen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); // بدون DefaultFirebaseOptions
   runApp(const MyApp());
 }
 
@@ -12,9 +13,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      title: 'Taxi App',
       debugShowCheckedModeBanner: false,
-      home: PhoneLoginScreen(),
+      home: const PhoneLoginScreen(),
     );
   }
 }
